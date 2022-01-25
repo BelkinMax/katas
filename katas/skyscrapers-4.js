@@ -1,121 +1,247 @@
 // https://www.codewars.com/kata/5671d975d81d6c1c87000022
-
-const _ = require('lodash');
+const { chunk, cloneDeep, flatten } = require('lodash')
 
 const init = (clues) => {
-  // Get all the possible combinations
-  const LINE_SIZE = 4;
-  const BASE_LINE = [1, 2, 3, 4];
+  class Cell {
+    row = 0;
+    col = 0;
+    value = 0;
+    possibleValues = [];
+    neighborsValues = [];
 
-  const permutator = (inputArr) => {
-    let result = [];
+    constructor({ row, col }) {
+      this.row = row
+      this.col = col
+    }
 
-    const permute = (arr, m = []) => {
-      if (arr.length === 0) {
-        result.push(m)
+    get row() { return this.row }
+    get col() { return this.col }
+    get value() { return this.value }
+    get isValid() {
+      const wasSet = this.value !== 0
+      const isPossible = this.possibleValues.indexOf(this.value) >= 0
+      const isUnique = this.neighborsValues.indexOf(this.value) === -1
+      return wasSet && isPossible && isUnique
+    }
+    set val(value) { this.value = value }
+  }
+  class Board {
+    len = 0;
+    clues = [];
+    board = [];
+
+    constructor(clues) {
+      this.len = Math.sqrt(clues.length)
+      this.clues = chunk(clues, this.len)
+      this.board = this.createEmptyBoard()
+    }
+
+    get layout() { return this.board }
+    get len() { return this.len }
+    get isValid() {
+      const flat = flatten(this.values())
+      return flat.every(num => num !== 0)
+    }
+
+    createEmptyBoard() {
+      const getEmptyLine = () => new Array(this.len).fill(null)
+      const board = getEmptyLine()
+      return board.map(_val => getEmptyLine())
+    }
+
+    cell({ row, col }) {
+      return this.board[row][col]
+    }
+
+    setCell(cell) {
+      this.board[cell.row][cell.col] = cell
+    }
+
+    setCellValue({ row, col, value }) {
+      this.board[row][col].val = value
+    }
+
+    neighbors({ row, col }) {
+      const cells = [...this.board[row]]
+      this.board.forEach(r => {
+        if (!cells.includes(r[col])) cells.push(r[col])
+      })
+
+      const values = []
+      cells.forEach(cell => {
+        values.push(cell.value)
+      })
+
+      return { cells, values }
+    }
+
+    combinations({ row, col }) {
+      let values = []
+      let rules = []
+      if (col !== undefined) {
+        values = this.values({ col })
+        rules = this.rules({ col })
+      } else if (row !== undefined) {
+        values = this.values({ row })
+        rules = this.rules({ row })
+      }
+
+      const list = this.getCombinations({ matchLine: values, matchRules: rules })
+      const defined = new Array(this.len).fill(0)
+
+      for (let i = 0; i < defined.length; i++) {
+        let value = list[0][i]
+        const filtered = list.filter(el => el[i] === value)
+        if (list.length === filtered.length) defined[i] = value
+      }
+
+      return { list, defined }
+    }
+
+    rules({ row, col }) {
+      if (row !== undefined) {
+        const [right, left] = [this.clues[1], this.clues[3]]
+        return [left[this.len - 1 - row], right[row]]
+      } else if (col !== undefined) {
+        const [top, bottom] = [this.clues[0], this.clues[2]]
+        return [top[col], bottom[this.len - 1 - col]]
+      }
+    }
+
+    values({ row, col } = {}) {
+      if (row !== undefined) {
+        const rowValues = []
+        this.board[row].forEach(cell => {
+          rowValues.push(cell.value)
+        })
+        return rowValues
+      } else if (col !== undefined) {
+        const colValues = []
+        this.board.forEach(r => {
+          colValues.push(r[col].value)
+        })
+        return colValues
       } else {
-        for (let i = 0; i < arr.length; i++) {
-          let curr = arr.slice();
-          let next = curr.splice(i, 1);
-          permute(curr.slice(), m.concat(next))
+        const allValues = []
+        this.board.forEach(r => {
+          const rowValues = []
+          r.forEach(cell => {
+            rowValues.push(cell.value)
+          })
+          allValues.push(rowValues)
+        })
+        return allValues
+      }
+    }
+
+    getCombinations({ matchRules, matchLine }, base = this.getBaseValues()) {
+      let result = [];
+
+      const permute = (arr, m = []) => {
+        if (arr.length === 0) {
+          result.push(m)
+        } else {
+          for (let i = 0; i < arr.length; i++) {
+            let curr = arr.slice();
+            let next = curr.splice(i, 1);
+            permute(curr.slice(), m.concat(next))
+          }
         }
       }
+      permute(base)
+
+      if (matchLine) {
+        matchLine.forEach((num, idx) => {
+          if (num !== 0) result = result.filter(el => el[idx] === num)
+        })
+      }
+
+      if (matchRules) {
+        result = result.filter(el => {
+          const [left, right] = matchRules
+
+          let curLeft = 0
+          let curRight = 0
+
+          if (left !== 0) {
+            let maxLeft = 0
+            for (const num of el) {
+              if (num > maxLeft) {
+                curLeft++
+                maxLeft = num
+              }
+            }
+          }
+
+          if (right !== 0) {
+            let maxRight = 0
+            for (const num of cloneDeep(el).reverse()) {
+              if (num > maxRight) {
+                curRight++
+                maxRight = num
+              }
+            }
+          }
+
+          if (curLeft && curRight) { return curLeft === left && curRight === right }
+          else if (curLeft && !curRight) { return curLeft === left }
+          else if (!curLeft && curRight) { return curRight === right }
+          else { return true }
+        })
+      }
+
+      return result;
     }
 
-    permute(inputArr)
-
-    return result;
+    getBaseValues() {
+      return Array.from({ length: this.len }, (_, i) => i + 1)
+    }
   }
-  const allCombinations = permutator(BASE_LINE);
-  // Create chunks
-  const cluesChunks = clues.reduce((resultArray, item, index) => {
-    const chunkIndex = Math.floor(index / LINE_SIZE)
 
-    if (!resultArray[chunkIndex]) {
-      resultArray[chunkIndex] = []
+  const board = new Board(clues)
+  const len = board.len
+
+  for (let row = 0; row < len; row++) {
+    for (let col = 0; col < len; col++) {
+      board.setCell(new Cell(
+        {
+          row: row,
+          col: col
+        }
+      ))
+    }
+  }
+
+
+  do {
+    for (let step = 0; step < len; step++) {
+      const definedRow = board.combinations({ row: step }).defined
+      definedRow.forEach((num, iCol) => {
+        if (num !== 0) {
+          board.setCellValue({
+            row: step,
+            col: iCol,
+            value: num
+          })
+        }
+      })
+
+      const definedCol = board.combinations({ col: step }).defined
+      definedCol.forEach((num, iRow) => {
+        if (num !== 0) {
+          board.setCellValue({
+            row: iRow,
+            col: step,
+            value: num
+          })
+        }
+      })
     }
 
-    resultArray[chunkIndex].push(item)
+    console.log(board.values());
+  } while (!board.isValid)
 
-    return resultArray
-  }, [])
-
-  // Create col and row chunks
-  const cols = [[...cluesChunks[0]], [...cluesChunks[2]].reverse()];
-  const rows = [[...cluesChunks[1]], [...cluesChunks[3]].reverse()];
-
-
-  const colsTuples = []
-  for (let i = 0; i < cols[0].length; i++) {
-    const top = cols[0][i]
-    const bottom = cols[1][i]
-    colsTuples.push([top, bottom])
-  }
-
-  const rowsTuples = []
-  for (let i = 0; i < rows[0].length; i++) {
-    const right = rows[0][i]
-    const left = rows[1][i]
-    rowsTuples.push([left, right])
-  }
-
-  // Filter valid solutions
-  const allCombinationsSolutions = []
-  for (const comb of allCombinations) {
-    let left = 0;
-    let right = 0;
-
-    // Calculate...
-    let maxLeft = 0;
-    for (const num of comb) {
-      if (num > maxLeft) {
-        left++
-        maxLeft = num
-      }
-    }
-    let maxRight = 0;
-    for (const num of (_.cloneDeep(comb)).reverse()) {
-      if (num > maxRight) {
-        right++
-        maxRight = num
-      }
-    }
-
-    allCombinationsSolutions.push([left, right])
-  }
-
-
-
-  const colsSolutions = []
-  for (let i = 0; i < colsTuples.length; i++) {
-    const lineSolutions = []
-    allCombinationsSolutions.forEach((el, idx) => {
-      if (_.isEqual(el, colsTuples[i])) {
-        lineSolutions.push(_.cloneDeep(allCombinations[idx]).reverse())
-      }
-    })
-    colsSolutions.push(lineSolutions)
-  }
-  console.log('=== cols result ===')
-  console.log(colsSolutions)
-
-  const rowsSolutions = []
-  for (let i = 0; i < rowsTuples.length; i++) {
-    const lineSolutions = []
-    allCombinationsSolutions.forEach((el, idx) => {
-      if (_.isEqual(el, rowsTuples[i])) {
-        lineSolutions.push(allCombinations[idx])
-      }
-    })
-    rowsSolutions.push(lineSolutions)
-  }
-  console.log('=== rows result ===')
-  console.log(rowsSolutions)
-
-  // 
-
-  // TEST RETURN
-  return [1, 2, 3, 4]
+  return board.values()
 }
 
 module.exports = {

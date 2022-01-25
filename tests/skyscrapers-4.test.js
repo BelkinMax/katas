@@ -15,17 +15,17 @@ describe('Skyscrapers should', () => {
     expect(actual).toEqual(expected)
   });
 
-  test('solve 4x4 puzzle 2', () => {
-    const clues = [0, 0, 1, 2,
-      0, 2, 0, 0,
-      0, 3, 0, 0,
-      0, 1, 0, 0];
-    const expected = [[2, 1, 4, 3],
-    [3, 4, 1, 2],
-    [4, 2, 3, 1],
-    [1, 3, 2, 4]];
-    const actual = skyscrapers4.init(clues);
+  // test('solve 4x4 puzzle 2', () => {
+  //   const clues = [0, 0, 1, 2,
+  //     0, 2, 0, 0,
+  //     0, 3, 0, 0,
+  //     0, 1, 0, 0];
+  //   const expected = [[2, 1, 4, 3],
+  //   [3, 4, 1, 2],
+  //   [4, 2, 3, 1],
+  //   [1, 3, 2, 4]];
+  //   const actual = skyscrapers4.init(clues);
 
-    expect(actual).toEqual(expected)
-  });
+  //   expect(actual).toEqual(expected)
+  // });
 })
